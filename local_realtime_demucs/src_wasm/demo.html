@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Demucs Web - Music Source Separation</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 2em;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+        }
+
+        .section {
+            margin-bottom: 30px;
+        }
+
+        .section-title {
+            font-size: 1.2em;
+            color: #444;
+            margin-bottom: 15px;
+            font-weight: 600;
+        }
+
+        .file-input-wrapper {
+            position: relative;
+            overflow: hidden;
+            display: inline-block;
+        }
+
+        .file-input-wrapper input[type=file] {
+            position: absolute;
+            left: -9999px;
+        }
+
+        .file-input-label {
+            display: inline-block;
+            padding: 12px 24px;
+            background: #667eea;
+            color: white;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.3s;
+            font-weight: 500;
+        }
+
+        .file-input-label:hover {
+            background: #5568d3;
+        }
+
+        .file-name {
+            margin-left: 15px;
+            color: #666;
+        }
+
+        .progress-container {
+            display: none;
+            margin-top: 20px;
+        }
+
+        .progress-bar-bg {
+            width: 100%;
+            height: 8px;
+            background: #e0e0e0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            width: 0%;
+            transition: width 0.3s;
+        }
+
+        .progress-text {
+            margin-top: 10px;
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        .sources-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .source-card {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 15px;
+            border: 1px solid #e0e0e0;
+        }
+
+        .source-title {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 10px;
+            text-transform: capitalize;
+        }
+
+        audio {
+            width: 100%;
+            height: 40px;
+        }
+
+        button {
+            padding: 12px 24px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: 500;
+            transition: background 0.3s;
+        }
+
+        button:hover:not(:disabled) {
+            background: #5568d3;
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .error {
+            background: #fee;
+            border: 1px solid #fcc;
+            color: #c33;
+            padding: 12px;
+            border-radius: 6px;
+            margin-top: 15px;
+        }
+
+        .info {
+            background: #e3f2fd;
+            border: 1px solid #90caf9;
+            color: #1976d2;
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 10px;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        .transport {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin: 10px 0 6px;
+        }
+
+        .transport button {
+            padding: 8px 16px;
+        }
+
+        .timecode {
+            font-variant-numeric: tabular-nums;
+            color: #444;
+        }
+
+        .timeline {
+            width: 100%;
+            height: 48px;
+            background: #f1f3f5;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        .wf-row {
+            display: grid;
+            grid-template-columns: 140px 1fr;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 0;
+            border-bottom: 1px dashed #eee;
+        }
+
+        .wf-label {
+            text-transform: capitalize;
+            color: #333;
+            font-weight: 600;
+        }
+
+        .wf-canvas {
+            width: 100%;
+            height: 60px;
+            background: #fafbfc;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        .mute-toggle {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            justify-content: flex-end;
+        }
+
+        .wf-left {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .wf-buttons {
+            display: flex;
+            gap: 6px;
+        }
+
+        .icon-btn {
+            border: 1px solid #d0d0d0;
+            background: #fff;
+            color: #555;
+            padding: 4px 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            line-height: 1.2;
+            width: 36px;
+            /* Make Solo, Mute, Download same width */
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .icon-btn.active {
+            background: #e9e9ff;
+            border-color: #b3b3ff;
+        }
+
+        .icon-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .timeline {
+            height: 60px;
+        }
+
+        /* Fallback banner (shown when WebGPU is unavailable) */
+        .warning-banner {
+            background: #fff3cd;
+            border: 1px solid #ffeeba;
+            color: #856404;
+            padding: 14px 16px;
+            border-radius: 8px;
+            margin: 16px 0 16px 0;
+            font-weight: 800;
+            font-size: 1.15em;
+            text-align: center;
+        }
+
+        /* Global download button */
+        .global-download-btn {
+            padding: 12px 16px;
+            background: #2e7d32;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .global-download-btn:disabled {
+            background: #9e9e9e;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        .results-actions {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 12px;
+        }
+
+        /* iOS Safari debug overlay */
+        #debugOverlay {
+            position: fixed;
+            bottom: 8px;
+            left: 8px;
+            right: 8px;
+            height: 30vh;
+            background: rgba(0, 0, 0, .92);
+            color: #d0ffd0;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+            font-size: 12px;
+            line-height: 1.4;
+            padding: 8px 10px;
+            border: 1px solid #333;
+            border-radius: 8px;
+            overflow: auto;
+            z-index: 9999;
+            display: none;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        #debugOverlay .line.warn {
+            color: #ffeb3b;
+        }
+
+        #debugOverlay .line.error {
+            color: #ff8a80;
+        }
+    </style>
+
+    <!-- Google Analytics (GA4) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-BVX5Y0DM65"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag() { dataLayer.push(arguments); }
+        gtag('js', new Date());
+        // Basic config: anonymize IP; keep page_path stable under your prefix
+        gtag('config', 'G-BVX5Y0DM65', {
+            anonymize_ip: true,
+            page_path: location.pathname
+        });
+    </script>
+
+</head>
+
+<body>
+    <div class="container">
+        <h1>🎵 Demucs Web</h1>
+        <p class="subtitle">Real-Time Music Source Separation in Your Browser</p>
+
+        <div id="iosBanner" class="warning-banner" style="display:none;">
+            ℹ️ iOS browser detected — some features may be limited. For best performance, use a desktop browser with
+            WebGPU.
+        </div>
+
+        <div id="fallbackBanner" class="warning-banner" style="display:none;">
+            ⚠️ WebGPU unavailable — using WASM (CPU). Performance will be reduced. This demo is intended for WebGPU.
+        </div>
+
+        <div class="info">
+            <strong>Note:</strong> This demo uses WebAssembly for DSP operations and ONNX Runtime Web with the
+            <strong>WebGPU</strong>
+            provider for neural network
+            inference.
+            First time loading may take a while as models are downloaded.
+            <br><br>
+
+            <p><strong>Note 2:</strong> As this demo is designed for processing using the <a
+                    href="https://developer.mozilla.org/en-US/docs/Web/API/WebGPU_API" target="_blank">WebGPU API</a>,
+                please check the
+                table below to see if your browser/setup is compatible (taken from <a
+                    href="https://www.npmjs.com/package/onnxruntime-web#compatibility" target="_blank">here)</a>. It
+                will not fall back to other execution backends, i.e. it won't work if you don't have a GPU.</p>
+            <img src="webgpucompattable.png" alt="WebGPU Compatibility Table"
+                style="max-width: 100%; height: auto; margin-top: 10px;">
+        </div>
+
+        <div class="section">
+            <div class="section-title">1. Initialize</div>
+            <button id="initBtn" onclick="initializeDemucs()">Load Model</button>
+            <div id="initStatus" class="loading" style="display: none;">
+                <span class="spinner"></span>
+                <span>Loading model and WASM module...</span>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">2. Select Audio File</div>
+            <div class="file-input-wrapper">
+                <input type="file" id="audioFile" accept="audio/*, audio/mp3" onchange="handleFileSelect(event)"
+                    disabled>
+                <label for="audioFile" class="file-input-label">Choose Audio File</label>
+            </div>
+            <span id="fileName" class="file-name">No file selected</span>
+        </div>
+
+        <div class="section" id="originalSection" style="display:none;">
+            <audio id="originalPlayer" controls style="width:100%;"></audio>
+        </div>
+
+        <div class="section">
+            <div class="section-title">3. Separate</div>
+            <button id="separateBtn" onclick="separateAudio()" disabled>Separate Sources</button>
+            <div id="progressContainer" class="progress-container">
+                <div class="progress-bar-bg">
+                    <div id="progressBar" class="progress-bar"></div>
+                </div>
+                <div id="progressText" class="progress-text">Initializing...</div>
+            </div>
+        </div>
+
+        <div id="errorContainer"></div>
+
+        <div class="section" id="resultsSection" style="display: none;">
+            <div class="section-title">4. Results</div>
+            <div class="transport">
+                <button id="playPauseBtn" disabled>▶ Play</button>
+                <div class="timecode"><span id="curTime">0:00</span> / <span id="durTime">0:00</span></div>
+            </div>
+
+            <div id="waveformContainer">
+                <div class="wf-row">
+                    <div class="wf-left"></div>
+                    <canvas id="timeline" class="wf-canvas timeline"></canvas>
+                </div>
+
+                <div class="wf-row">
+                    <div class="wf-left">
+                        <div class="wf-label">Drums</div>
+                        <div class="wf-buttons">
+                            <button id="solo-drums" class="icon-btn" title="Solo">S</button>
+                            <button id="mute-drums" class="icon-btn" title="Mute">🔇</button>
+                            <button id="download-drums" class="icon-btn" title="Download stem" disabled>⬇</button>
+                        </div>
+                    </div>
+                    <canvas id="wf-drums" class="wf-canvas"></canvas>
+                </div>
+
+                <div class="wf-row">
+                    <div class="wf-left">
+                        <div class="wf-label">Bass</div>
+                        <div class="wf-buttons">
+                            <button id="solo-bass" class="icon-btn" title="Solo">S</button>
+                            <button id="mute-bass" class="icon-btn" title="Mute">🔇</button>
+                            <button id="download-bass" class="icon-btn" title="Download stem" disabled>⬇</button>
+                        </div>
+                    </div>
+                    <canvas id="wf-bass" class="wf-canvas"></canvas>
+                </div>
+
+                <div class="wf-row">
+                    <div class="wf-left">
+                        <div class="wf-label">Other</div>
+                        <div class="wf-buttons">
+                            <button id="solo-other" class="icon-btn" title="Solo">S</button>
+                            <button id="mute-other" class="icon-btn" title="Mute">🔇</button>
+                            <button id="download-other" class="icon-btn" title="Download stem" disabled>⬇</button>
+                        </div>
+                    </div>
+                    <canvas id="wf-other" class="wf-canvas"></canvas>
+                </div>
+
+                <div class="wf-row">
+                    <div class="wf-left">
+                        <div class="wf-label">Vocals</div>
+                        <div class="wf-buttons">
+                            <button id="solo-vocals" class="icon-btn" title="Solo">S</button>
+                            <button id="mute-vocals" class="icon-btn" title="Mute">🔇</button>
+                            <button id="download-vocals" class="icon-btn" title="Download stem" disabled>⬇</button>
+                        </div>
+                    </div>
+                    <canvas id="wf-vocals" class="wf-canvas"></canvas>
+                </div>
+            </div>
+
+            <div class="results-actions">
+                <button id="globalDownloadBtn" class="global-download-btn" title="Download all stems as ZIP"
+                    style="display:none" disabled>
+                    ⬇ Download All (zip)
+                </button>
+            </div>
+
+
+        </div>
+    </div>
+
+    <!-- iOS Safari debug overlay -->
+    <div id="debugOverlay" aria-live="polite"></div>
+
+    <!-- Load ONNX Runtime Web from CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@dev/dist/ort.webgpu.min.js"></script>
+    <!-- JSZip for creating ZIP archives in-browser -->
+    <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+
+    <!-- Load demo JavaScript -->
+    <script type="module" src="demo.js"></script>
+
+    <script>
+        // Auto-load model on page load
+        document.addEventListener('DOMContentLoaded', async (event) => {
+            const module = await import('./demo.js');
+            module.initializeDemucs();
+
+            // Auto-load lullaby.mp3 after model is initialized
+            await module.loadAudioFile('lullaby.mp3');
+        });
+    </script>
+</body>
+
+</html>
